@@ -11,10 +11,19 @@ export default function App() {
   const [language, setLanguage] = useState('English');
   const [status, setStatus] = useState('Ready');
 
-  // Selected files state (for UX feedback only in this UI demo)
+  // Selected files state
   const [classifierFiles, setClassifierFiles] = useState([]);
   const [snakeFiles, setSnakeFiles] = useState([]);
   const [emotionFiles, setEmotionFiles] = useState([]);
+
+  // API results state
+  const [classifierResult, setClassifierResult] = useState(null);
+  const [snakeResult, setSnakeResult] = useState(null);
+  const [emotionResult, setEmotionResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
   const handleOpenModule = (key) => {
     setCurrentView(key);
@@ -24,6 +33,28 @@ export default function App() {
       setTimeout(() => setStatus('Ready'), 2000);
     }
   };
+
+  async function uploadAndPredict(endpoint, files, setResult) {
+    if (!files || files.length === 0) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const form = new FormData();
+      for (const f of files) form.append('files', f);
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        body: form,
+      });
+      if (!res.ok) throw new Error(`Request failed (${res.status})`);
+      const json = await res.json();
+      setResult(json);
+    } catch (e) {
+      setError(e.message || 'Something went wrong');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const HeaderTitle = () => {
     const titles = {
@@ -36,6 +67,25 @@ export default function App() {
       feedback: 'Feedback & Validation',
     };
     return <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">{titles[currentView] || 'Pashu Mitra AI'}</h1>;
+  };
+
+  const ResultList = ({ result, emptyHint = '—' }) => {
+    if (!result) {
+      return (
+        <ul className="mt-3 space-y-2 text-sm">
+          <li className="flex items-center justify-between"><span>Top Match</span><span className="font-medium">{emptyHint}</span></li>
+          <li className="flex items-center justify-between"><span>Second</span><span className="font-medium">{emptyHint}</span></li>
+          <li className="flex items-center justify-between"><span>Third</span><span className="font-medium">{emptyHint}</span></li>
+        </ul>
+      );
+    }
+    return (
+      <ul className="mt-3 space-y-2 text-sm">
+        {result.predictions?.slice(0, 3).map((p, idx) => (
+          <li key={idx} className="flex items-center justify-between"><span>{idx === 0 ? 'Top Match' : idx === 1 ? 'Second' : 'Third'}</span><span className="font-medium">{p.label} ({Math.round(p.confidence * 100)}%)</span></li>
+        ))}
+      </ul>
+    );
   };
 
   const renderContent = () => {
@@ -61,18 +111,19 @@ export default function App() {
                   accept="image/*"
                   multiple={false}
                   capture="environment"
-                  onFiles={(files) => setClassifierFiles(files)}
+                  onFiles={(files) => {
+                    setClassifierFiles(files);
+                    uploadAndPredict('/api/classify', files, setClassifierResult);
+                  }}
                 />
               </div>
               <div className="mt-3 text-xs text-slate-500">Selected: {classifierFiles.length} file(s)</div>
+              {loading && <div className="mt-3 text-sm text-blue-600">Analyzing...</div>}
+              {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
             </section>
             <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="font-semibold text-slate-900">Results</h2>
-              <ul className="mt-3 space-y-2 text-sm">
-                <li className="flex items-center justify-between"><span>Top Match</span><span className="font-medium">—</span></li>
-                <li className="flex items-center justify-between"><span>Second</span><span className="font-medium">—</span></li>
-                <li className="flex items-center justify-between"><span>Third</span><span className="font-medium">—</span></li>
-              </ul>
+              <ResultList result={classifierResult} />
               <div className="mt-3 text-xs text-slate-500">Snake images will show a clear danger label.</div>
             </section>
           </div>
@@ -121,15 +172,25 @@ export default function App() {
                   accept="image/*"
                   multiple={false}
                   capture="environment"
-                  onFiles={(files) => setSnakeFiles(files)}
+                  onFiles={(files) => {
+                    setSnakeFiles(files);
+                    uploadAndPredict('/api/snake', files, setSnakeResult);
+                  }}
                 />
               </div>
               <div className="mt-3 text-xs text-slate-500">Selected: {snakeFiles.length} file(s)</div>
+              {loading && <div className="mt-3 text-sm text-blue-600">Analyzing...</div>}
+              {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
             </section>
             <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="font-semibold text-slate-900">Danger Assessment</h2>
               <div className="mt-3 text-sm">
-                <div className="inline-flex items-center px-2 py-1 rounded-full bg-slate-100 text-slate-700">Venom status: —</div>
+                <div className="inline-flex items-center px-2 py-1 rounded-full bg-slate-100 text-slate-700">
+                  Venom status: {snakeResult ? (snakeResult.meta?.danger || '—') : '—'}
+                </div>
+                <div className="mt-3">
+                  <ResultList result={snakeResult} />
+                </div>
                 <p className="mt-3 text-slate-600">Safety recommendations will appear here.</p>
               </div>
             </section>
@@ -162,18 +223,31 @@ export default function App() {
                   accept="image/*,video/*"
                   multiple={false}
                   capture="environment"
-                  onFiles={(files) => setEmotionFiles(files)}
+                  onFiles={(files) => {
+                    setEmotionFiles(files);
+                    uploadAndPredict('/api/emotion', files, setEmotionResult);
+                  }}
                 />
               </div>
               <div className="mt-3 text-xs text-slate-500">Selected: {emotionFiles.length} file(s)</div>
+              {loading && <div className="mt-3 text-sm text-blue-600">Analyzing...</div>}
+              {error && <div className="mt-3 text-sm text-red-600">{error}</div>}
             </section>
             <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="font-semibold text-slate-900">Insights</h2>
-              <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                <li>Mood: —</li>
-                <li>Confidence: —</li>
-                <li>Advice: —</li>
-              </ul>
+              {emotionResult ? (
+                <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                  <li>Mood: {emotionResult.predictions?.[0]?.label || '—'}</li>
+                  <li>Confidence: {emotionResult.predictions?.[0]?.confidence ? `${Math.round(emotionResult.predictions[0].confidence * 100)}%` : '—'}</li>
+                  <li>Advice: {emotionResult.predictions?.[0]?.label === 'Agitated' ? 'Give space, avoid triggering stimuli.' : emotionResult.predictions?.[0]?.label === 'Happy' ? 'Reinforce positive behavior and play.' : 'Observe calmly.'}</li>
+                </ul>
+              ) : (
+                <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                  <li>Mood: —</li>
+                  <li>Confidence: —</li>
+                  <li>Advice: —</li>
+                </ul>
+              )}
             </section>
           </div>
         );
