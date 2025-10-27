@@ -3,6 +3,7 @@ import SidebarNav from './components/SidebarNav.jsx';
 import TopBar from './components/TopBar.jsx';
 import ModuleGrid from './components/ModuleGrid.jsx';
 import FooterBar from './components/FooterBar.jsx';
+import UploadDropzone from './components/UploadDropzone.jsx';
 
 export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -10,9 +11,13 @@ export default function App() {
   const [language, setLanguage] = useState('English');
   const [status, setStatus] = useState('Ready');
 
+  // Selected files state (for UX feedback only in this UI demo)
+  const [classifierFiles, setClassifierFiles] = useState([]);
+  const [snakeFiles, setSnakeFiles] = useState([]);
+  const [emotionFiles, setEmotionFiles] = useState([]);
+
   const handleOpenModule = (key) => {
     setCurrentView(key);
-    // Simple simulated status transitions for feedback logging UX
     if (key === 'feedback') {
       setStatus('Logging Securely');
       setTimeout(() => setStatus('Confirmed'), 900);
@@ -51,14 +56,15 @@ export default function App() {
               <h2 className="font-semibold text-slate-900">Upload Animal Image</h2>
               <p className="text-sm text-slate-600">Drag & drop or select a clear photo for best results.</p>
               <div className="mt-4">
-                <label
-                  htmlFor="file-input"
-                  className="block w-full border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-emerald-400 transition cursor-pointer"
-                >
-                  <div className="text-slate-500">Drop image here or click to browse</div>
-                  <input id="file-input" type="file" accept="image/*" className="hidden" />
-                </label>
+                <UploadDropzone
+                  label="Drop image or tap to browse (camera supported)"
+                  accept="image/*"
+                  multiple={false}
+                  capture="environment"
+                  onFiles={(files) => setClassifierFiles(files)}
+                />
               </div>
+              <div className="mt-3 text-xs text-slate-500">Selected: {classifierFiles.length} file(s)</div>
             </section>
             <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="font-semibold text-slate-900">Results</h2>
@@ -83,7 +89,12 @@ export default function App() {
                 <textarea className="px-3 py-2 rounded-md border border-slate-200 sm:col-span-2" rows="3" placeholder="Additional notes, bite details if any" />
                 <div className="sm:col-span-2">
                   <label className="block text-sm text-slate-600 mb-1">Upload relevant images</label>
-                  <input type="file" multiple />
+                  <UploadDropzone
+                    label="Add photos (optional)"
+                    accept="image/*"
+                    multiple={true}
+                    onFiles={() => {}}
+                  />
                 </div>
               </div>
               <button className="mt-4 px-4 py-2 rounded-md bg-emerald-600 text-white hover:bg-emerald-700">Analyze</button>
@@ -105,11 +116,15 @@ export default function App() {
               <h2 className="font-semibold text-slate-900">Snake Image Classifier</h2>
               <p className="text-sm text-slate-600">Upload a clear image for identification and venom danger assessment.</p>
               <div className="mt-4">
-                <label className="block w-full border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-orange-400 transition cursor-pointer">
-                  <div className="text-slate-500">Drop snake image here or click to browse</div>
-                  <input type="file" accept="image/*" className="hidden" />
-                </label>
+                <UploadDropzone
+                  label="Drop snake image (camera supported)"
+                  accept="image/*"
+                  multiple={false}
+                  capture="environment"
+                  onFiles={(files) => setSnakeFiles(files)}
+                />
               </div>
+              <div className="mt-3 text-xs text-slate-500">Selected: {snakeFiles.length} file(s)</div>
             </section>
             <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="font-semibold text-slate-900">Danger Assessment</h2>
@@ -142,8 +157,15 @@ export default function App() {
               <h2 className="font-semibold text-slate-900">Pet Emotion Analysis</h2>
               <p className="text-sm text-slate-600">Upload a dog or cat image/video to interpret mood.</p>
               <div className="mt-4">
-                <input type="file" accept="image/*,video/*" />
+                <UploadDropzone
+                  label="Upload image or short video"
+                  accept="image/*,video/*"
+                  multiple={false}
+                  capture="environment"
+                  onFiles={(files) => setEmotionFiles(files)}
+                />
               </div>
+              <div className="mt-3 text-xs text-slate-500">Selected: {emotionFiles.length} file(s)</div>
             </section>
             <section className="rounded-2xl border border-slate-200 bg-white p-5">
               <h2 className="font-semibold text-slate-900">Insights</h2>
